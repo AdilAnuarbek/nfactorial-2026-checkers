@@ -1,5 +1,4 @@
 'use client';
-
 import {
   createContext,
   useCallback,
@@ -22,6 +21,7 @@ interface AuthContextValue {
   configured: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string, displayName?: string, city?: string) => Promise<string | null>;
+  signInWithGoogle: () => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -54,7 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
       if (data.session?.user) {
@@ -62,7 +61,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
     });
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -73,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       }
     });
-
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
@@ -92,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
         options: {
-          data: { 
+          data: {
             display_name: displayName || email.split('@')[0],
             city: city || null,
           },
@@ -102,6 +99,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // Редирект на Google OAuth — Supabase сам вернёт пользователя обратно
+  const signInWithGoogle = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return 'Supabase не настроен';
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    return error?.message ?? null;
+  }, []);
 
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
@@ -118,10 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       configured: isSupabaseConfigured,
       signIn,
       signUp,
+      signInWithGoogle,
       signOut,
       refreshProfile,
     }),
-    [user, profile, loading, signIn, signUp, signOut, refreshProfile]
+    [user, profile, loading, signIn, signUp, signInWithGoogle, signOut, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
