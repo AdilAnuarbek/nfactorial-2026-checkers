@@ -43,11 +43,16 @@ export default function MultiplayerRoom({ roomId }: MultiplayerRoomProps) {
   const router = useRouter();
   const [room, setRoom] = useState<GameRoom | null>(null);
   const [session, setSession] = useState<RoomSession | null>(null);
-  const [playerName, setPlayerName] = useState(getDefaultPlayerName);
+  const [playerName, setPlayerName] = useState('');
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    setPlayerName(getDefaultPlayerName());
+  }, []);
 
   const shareUrl = useMemo(() => getRoomShareUrl(roomId), [roomId]);
 

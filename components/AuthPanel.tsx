@@ -40,7 +40,7 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
             {profile?.display_name || user.email}
             {profile && (
               <span className="ml-2 text-app-muted">
-                {profile.wins}П / {profile.losses}П
+                {profile.wins}W / {profile.losses}L
               </span>
             )}
           </span>

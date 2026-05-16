@@ -36,8 +36,12 @@ export function clearRoomSession(roomId: string): void {
 }
 
 export function getDefaultPlayerName(): string {
-  const saved = localStorage.getItem('checkers-player-name');
-  if (saved) return saved;
+  // Проверяем, доступен ли window (то есть выполняемся ли мы в браузере)
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('checkers-player-name');
+    if (saved) return saved;
+  }
+  
   return `Игрок-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 

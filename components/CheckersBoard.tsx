@@ -117,17 +117,36 @@ export default function CheckersBoard({
   const [isAnimating, setIsAnimating] = useState(false);
   const isAnimatingRef = useRef(false);
   const moveFinishedRef = useRef(false);
-  const animatingMoveRef = useRef<Move | null>(null);
+  const animatingMoveRef = useRef<{ move: Move; isIncoming: boolean } | null>(null);
+
+  const localMovesLengthRef = useRef(moveHistory.length);
+  useEffect(() => {
+    localMovesLengthRef.current = moveHistory.length;
+  }, [moveHistory.length]);
 
   useEffect(() => {
     if (!onlinePlay || isAnimatingRef.current) return;
-    setBoard(onlinePlay.synced.board);
-    setCurrentPlayer(onlinePlay.synced.currentPlayer);
-    setMoveHistory(onlinePlay.synced.moveHistory);
-    setWinner(onlinePlay.synced.winner);
-    setSelectedPiece(null);
-    setValidMoves([]);
-    setMustCapture(false);
+
+    const syncedMoves = onlinePlay.synced.moveHistory;
+    // Берем актуальную длину ходов из Ref, чтобы избежать stale closures
+    const localMovesLength = localMovesLengthRef.current;
+    const diff = syncedMoves.length - localMovesLength;
+
+    if (diff === 1) {
+      // Пришел один новый ход от соперника — запускаем анимацию
+      const incomingMove = syncedMoves[localMovesLength];
+      playMove(incomingMove, true);
+    } else if (diff >= 0 && diff !== 1) {
+      // Обычная синхронизация нашего хода или переподключение (diff === 0 или diff > 1)
+      setBoard(onlinePlay.synced.board);
+      setCurrentPlayer(onlinePlay.synced.currentPlayer);
+      setMoveHistory(onlinePlay.synced.moveHistory);
+      setWinner(onlinePlay.synced.winner);
+      setSelectedPiece(null);
+      setValidMoves([]);
+      setMustCapture(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onlinePlay?.syncVersion]);
 
   useEffect(() => {
@@ -355,38 +374,39 @@ export default function CheckersBoard({
     return newBoard;
   };
 
-  // Применение хода к состоянию (после анимации)
   const commitMove = useCallback(
-    (move: Move) => {
-      if (onlinePlay) {
-        void onlinePlay.onMove(move);
-        return;
+    (move: Move, isIncoming: boolean = false) => {
+      // Безопасно вычисляем новые данные
+      const newBoard = applyMoveToBoard(board, move);
+      const opponent = currentPlayer === 'white' ? 'black' : 'white';
+      const opponentMoves = getAllPlayerMoves(opponent, newBoard);
+
+      // Обновляем все стейты на одном уровне
+      setBoard(newBoard);
+      setMoveHistory(h => [...h, move]);
+      
+      if (opponentMoves.length === 0) {
+        setWinner(currentPlayer);
+      } else {
+        setCurrentPlayer(opponent);
       }
 
-      setBoard(prev => {
-        const newBoard = applyMoveToBoard(prev, move);
-        const opponent = currentPlayer === 'white' ? 'black' : 'white';
-        const opponentMoves = getAllPlayerMoves(opponent, newBoard);
-
-        setMoveHistory(h => [...h, move]);
-        if (opponentMoves.length === 0) {
-          setWinner(currentPlayer);
-        } else {
-          setCurrentPlayer(opponent);
-        }
-
-        return newBoard;
-      });
+      // Отправляем ход на сервер, только если это мы сделали ход
+      if (onlinePlay && !isIncoming) {
+        void onlinePlay.onMove(move);
+      }
     },
-    [currentPlayer, onlinePlay]
+    [board, currentPlayer, onlinePlay]
   );
 
   const finishMoveAnimation = useCallback(() => {
-    const move = animatingMoveRef.current;
-    if (!move || moveFinishedRef.current) return;
+    const animData = animatingMoveRef.current;
+    if (!animData || moveFinishedRef.current) return;
     moveFinishedRef.current = true;
     animatingMoveRef.current = null;
-    commitMove(move);
+
+    commitMove(animData.move, animData.isIncoming);
+
     setMoveAnimation(null);
     setCapturingPieces([]);
     setCaptureFading(false);
@@ -395,7 +415,7 @@ export default function CheckersBoard({
   }, [commitMove]);
 
   const playMove = useCallback(
-    (move: Move) => {
+    (move: Move, isIncoming: boolean = false) => {
       if (isAnimatingRef.current) return;
 
       const piece = board[move.from.row][move.from.col];
@@ -423,7 +443,9 @@ export default function CheckersBoard({
 
       setCapturingPieces(caps);
       setCaptureFading(false);
-      animatingMoveRef.current = move;
+      
+      // Сохраняем и сам ход, и откуда он пришел
+      animatingMoveRef.current = { move, isIncoming };
       setMoveAnimation({ move, piece, flying: false });
 
       requestAnimationFrame(() => {
