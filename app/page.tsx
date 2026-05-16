@@ -22,6 +22,7 @@ import {
   saveRoomSession,
 } from '@/lib/multiplayer/session';
 import { Crown, Sparkles, Link2 } from 'lucide-react';
+import CityLeaderboard from '@/components/CityLeaderboard';
 
 export default function Home() {
   const router = useRouter();
@@ -117,11 +118,9 @@ export default function Home() {
         <div className="my-8 w-full max-w-2xl">
           <div className="mb-8 text-center animate-fade-in">
             <div className="mb-4 flex items-center justify-center gap-3">
-              <Crown className="h-12 w-12 text-yellow-400" />
               <h1 className="text-5xl font-bold text-app-text sm:text-6xl">
                 Шашки Pro
               </h1>
-              <Sparkles className="h-12 w-12 text-purple-400" />
             </div>
             <p className="text-lg text-app-muted sm:text-xl">
               Современная платформа для игры в шашки
@@ -210,6 +209,10 @@ export default function Home() {
           </div>
 
           <GameHistoryPanel refreshKey={historyVersion} />
+
+          <div className="mt-6">
+            <CityLeaderboard />
+          </div>
 
           <div className="mt-8 grid grid-cols-3 gap-3 text-center sm:gap-4">
             <div className="rounded-xl border border-app-panel-border bg-app-panel p-3 backdrop-blur-sm sm:p-4">

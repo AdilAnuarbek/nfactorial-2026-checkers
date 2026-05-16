@@ -9,6 +9,8 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create index if not exists idx_profiles_city on public.profiles(city);
+
 create table if not exists public.games (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -44,8 +46,12 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)));
+  insert into public.profiles (id, display_name, city)
+  values (
+    new.id, 
+    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
+    new.raw_user_meta_data->>'city'
+  );
   return new;
 end;
 $$;
@@ -84,4 +90,5 @@ create policy "game_rooms_select" on public.game_rooms for select using (true);
 create policy "game_rooms_insert" on public.game_rooms for insert with check (true);
 create policy "game_rooms_update" on public.game_rooms for update using (true);
 
--- В Dashboard: Database → Replication → включить game_rooms для Realtime
+-- Включаем Realtime для таблицы game_rooms
+ALTER PUBLICATION supabase_realtime ADD TABLE game_rooms;

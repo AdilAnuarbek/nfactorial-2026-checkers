@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { LogIn, LogOut, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthProvider';
+import { CITIES } from '@/lib/constants';
 
 export default function AuthPanel({ compact = false }: { compact?: boolean }) {
   const { user, profile, loading, configured, signIn, signUp, signOut } =
@@ -12,8 +13,9 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [city, setCity] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   if (!configured) {
@@ -73,13 +75,23 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
           className="space-y-3 rounded-2xl border border-app-panel-border bg-app-panel p-4 backdrop-blur-sm"
           onSubmit={async e => {
             e.preventDefault();
-            setError(null);
-            setMessage(null);
+            setError('');
+            setMessage('');
+            
+            // Валидация города при регистрации
+            if (mode === 'register' && !CITIES.includes(city)) {
+              setError('Пожалуйста, выберите город из предложенного списка.');
+              return;
+            }
+
             setSubmitting(true);
+            
+            // Передаем параметр city в функцию signUp!
             const err =
               mode === 'login'
                 ? await signIn(email, password)
-                : await signUp(email, password, displayName);
+                : await signUp(email, password, displayName, city); 
+                
             setSubmitting(false);
             if (err) {
               setError(err);
@@ -95,7 +107,10 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
           <div className="flex gap-2 text-sm">
             <button
               type="button"
-              onClick={() => setMode('login')}
+              onClick={() => {
+                setMode('login');
+                setError('');
+              }}
               className={`flex-1 rounded-lg py-1.5 ${
                 mode === 'login' ? 'bg-app-accent text-white' : 'text-app-muted'
               }`}
@@ -104,7 +119,10 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
             </button>
             <button
               type="button"
-              onClick={() => setMode('register')}
+              onClick={() => {
+                setMode('register');
+                setError('');
+              }}
               className={`flex-1 rounded-lg py-1.5 ${
                 mode === 'register'
                   ? 'bg-app-accent text-white'
@@ -116,14 +134,37 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
           </div>
 
           {mode === 'register' && (
-            <input
-              type="text"
-              placeholder="Имя"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              className="app-input w-full"
-            />
+            <>
+              <input
+                type="text"
+                placeholder="Имя"
+                required
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                className="app-input w-full"
+              />
+              <div className="relative">
+                <input
+                  type="text"
+                  list="city-list"
+                  placeholder="Ваш город (начните вводить...)"
+                  required
+                  value={city}
+                  onChange={e => {
+                    setCity(e.target.value);
+                    setError('');
+                  }}
+                  className="app-input w-full"
+                />
+                <datalist id="city-list">
+                  {CITIES.map(c => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+            </>
           )}
+          
           <input
             type="email"
             required

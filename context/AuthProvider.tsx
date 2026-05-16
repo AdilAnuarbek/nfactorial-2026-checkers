@@ -21,7 +21,7 @@ interface AuthContextValue {
   loading: boolean;
   configured: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<string | null>;
+  signUp: (email: string, password: string, displayName?: string, city?: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -85,14 +85,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName?: string) => {
+    async (email: string, password: string, displayName?: string, city?: string) => {
       const supabase = getSupabase();
       if (!supabase) return 'Supabase не настроен';
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { display_name: displayName || email.split('@')[0] },
+          data: { 
+            display_name: displayName || email.split('@')[0],
+            city: city || null,
+          },
         },
       });
       return error?.message ?? null;
