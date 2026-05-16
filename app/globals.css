@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out;
+  }
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/*
+ * Игра: квадратная доска подгоняется под высоту окна и ширину колонки,
+ * чтобы страница не прокручивалась во время партии.
+ */
+.checker-board-max {
+  box-sizing: border-box;
+  width: min(calc(100vw - 1.5rem), calc(100dvh - 18rem));
+  max-width: 100%;
+  max-height: calc(100dvh - 18rem);
+  aspect-ratio: 1 / 1;
+}
+
+@media (min-width: 1024px) {
+  .checker-board-max {
+    width: min(calc(100vw - 24rem), calc(100dvh - 9rem));
+    max-height: calc(100dvh - 9rem);
+  }
+}
+
+/* Слой фишек поверх клеток */
+.checker-pieces-layer {
+  pointer-events: none;
+}
+
+.checker-piece-slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12.5%;
+  height: 12.5%;
+  transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+}
+
+.checker-piece-fly {
+  z-index: 30;
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.45));
+  transition:
+    left 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.2s ease;
+  will-change: left, top;
+}
+
+.checker-piece-capture {
+  z-index: 20;
+}
+
+.checker-piece-capture--fade {
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+/* Скрываем скроллбар, но оставляем функциональность */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
