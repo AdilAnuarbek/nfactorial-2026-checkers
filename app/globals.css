@@ -1,5 +1,87 @@
 @import "tailwindcss";
 
+:root,
+[data-theme='dark'] {
+  --app-bg-from: #0f172a;
+  --app-bg-via: #581c87;
+  --app-bg-to: #0f172a;
+  --app-text: #ffffff;
+  --app-muted: #e9d5ff;
+  --app-accent: #a855f7;
+  --app-panel: rgba(255, 255, 255, 0.1);
+  --app-panel-hover: rgba(255, 255, 255, 0.15);
+  --app-panel-border: rgba(255, 255, 255, 0.2);
+  --app-input-bg: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='light'] {
+  --app-bg-from: #f8fafc;
+  --app-bg-via: #e0e7ff;
+  --app-bg-to: #f1f5f9;
+  --app-text: #0f172a;
+  --app-muted: #64748b;
+  --app-accent: #7c3aed;
+  --app-panel: rgba(255, 255, 255, 0.85);
+  --app-panel-hover: rgba(255, 255, 255, 1);
+  --app-panel-border: rgba(15, 23, 42, 0.12);
+  --app-input-bg: #ffffff;
+}
+
+.app-shell {
+  background: linear-gradient(
+    to bottom right,
+    var(--app-bg-from),
+    var(--app-bg-via),
+    var(--app-bg-to)
+  );
+}
+
+.text-app-text {
+  color: var(--app-text);
+}
+
+.text-app-muted {
+  color: var(--app-muted);
+}
+
+.text-app-accent {
+  color: var(--app-accent);
+}
+
+.bg-app-panel {
+  background-color: var(--app-panel);
+}
+
+.bg-app-panel-hover {
+  background-color: var(--app-panel-hover);
+}
+
+.border-app-panel-border {
+  border-color: var(--app-panel-border);
+}
+
+.bg-app-accent {
+  background-color: var(--app-accent);
+}
+
+.app-input {
+  border-radius: 0.5rem;
+  border: 1px solid var(--app-panel-border);
+  background-color: var(--app-input-bg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--app-text);
+}
+
+.app-input::placeholder {
+  color: var(--app-muted);
+}
+
+.app-input:focus {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
+}
+
 @layer utilities {
   @keyframes fade-in {
     from {

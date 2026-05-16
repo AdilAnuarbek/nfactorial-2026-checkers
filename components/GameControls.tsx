@@ -1,73 +1,73 @@
 'use client';
 
-import { ArrowLeft, Settings, Moon, Sun } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Settings } from 'lucide-react';
+import AppearanceControls from '@/components/AppearanceControls';
+import type { AiLevel, PieceColor } from '@/lib/checkers/types';
 
 interface GameControlsProps {
   onBack: () => void;
-  gameMode: 'pvp' | 'ai';
-  aiLevel: 'easy' | 'medium' | 'hard';
-  onAiLevelChange: (level: 'easy' | 'medium' | 'hard') => void;
+  gameMode: 'pvp' | 'ai' | 'online';
+  aiLevel: AiLevel;
+  humanColor?: PieceColor;
+  onAiLevelChange: (level: AiLevel) => void;
 }
 
 export default function GameControls({
   onBack,
   gameMode,
   aiLevel,
+  humanColor = 'white',
   onAiLevelChange,
 }: GameControlsProps) {
-  const [isDark, setIsDark] = useState(true);
-
   return (
     <div className="mb-2 shrink-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 px-3 py-2 sm:gap-4 sm:px-4 sm:py-2.5">
-        {/* Кнопка назад */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-app-panel-border bg-app-panel px-3 py-2 backdrop-blur-sm sm:gap-4 sm:px-4 sm:py-2.5">
         <button
+          type="button"
           onClick={onBack}
-          className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all text-white text-sm font-medium sm:px-4 sm:py-2 sm:text-base"
+          className="flex items-center gap-2 rounded-lg bg-app-panel-hover px-3 py-1.5 text-sm font-medium text-app-text transition-all sm:px-4 sm:py-2 sm:text-base"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Назад в меню</span>
         </button>
 
-        {/* Режим игры */}
-        <div className="flex items-center gap-4">
-          <div className="text-white">
-            <span className="text-purple-200 text-sm">Режим: </span>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="text-app-text">
+            <span className="text-sm text-app-muted">Режим: </span>
             <span className="font-bold">
-              {gameMode === 'pvp' ? 'Игра вдвоём' : 'Против ИИ'}
+              {gameMode === 'pvp'
+                ? 'Игра вдвоём'
+                : gameMode === 'online'
+                  ? 'Онлайн'
+                  : 'Против ИИ'}
             </span>
           </div>
 
-          {/* Настройки ИИ */}
           {gameMode === 'ai' && (
-            <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-purple-300" />
-              <select
-                value={aiLevel}
-                onChange={(e) => onAiLevelChange(e.target.value as any)}
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              >
-                <option value="easy" className="bg-gray-800">Легко</option>
-                <option value="medium" className="bg-gray-800">Средне</option>
-                <option value="hard" className="bg-gray-800">Сложно</option>
-              </select>
-            </div>
+            <>
+              <div className="text-sm text-app-text">
+                <span className="text-app-muted">Вы: </span>
+                <span className="font-bold">
+                  {humanColor === 'white' ? 'Белые' : 'Чёрные'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Settings className="h-4 w-4 text-app-accent" />
+                <select
+                  value={aiLevel}
+                  onChange={e => onAiLevelChange(e.target.value as AiLevel)}
+                  className="app-input px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  <option value="easy">Легко</option>
+                  <option value="medium">Средне</option>
+                  <option value="hard">Сложно</option>
+                </select>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Тема (для будущей реализации) */}
-        <button
-          onClick={() => setIsDark(!isDark)}
-          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
-          title="Переключить тему"
-        >
-          {isDark ? (
-            <Sun className="w-5 h-5 text-yellow-300" />
-          ) : (
-            <Moon className="w-5 h-5 text-purple-300" />
-          )}
-        </button>
+        <AppearanceControls compact />
       </div>
     </div>
   );

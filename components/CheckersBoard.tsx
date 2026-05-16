@@ -2,29 +2,26 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Trophy, RotateCcw } from 'lucide-react';
-
-type PieceType = 'regular' | 'king';
-type PieceColor = 'black' | 'white';
-
-interface Piece {
-  color: PieceColor;
-  type: PieceType;
-}
-
-interface Position {
-  row: number;
-  col: number;
-}
-
-interface Move {
-  from: Position;
-  to: Position;
-  captures?: Position[];
-}
-
-type Board = (Piece | null)[][];
-
-const BOARD_SIZE = 8;
+import { useApp } from '@/context/AppProviders';
+import { useAuth } from '@/context/AuthProvider';
+import { BOARD_SIZE, initializeBoard } from '@/lib/checkers/board';
+import type {
+  AiLevel,
+  Board,
+  GameMode,
+  Move,
+  Piece,
+  PieceColor,
+  Position,
+  SavedGameState,
+} from '@/lib/checkers/types';
+import { saveFinishedGame } from '@/lib/games';
+import {
+  playCaptureSound,
+  playMoveSound,
+  playSelectSound,
+  playWinSound,
+} from '@/lib/sounds';
 const CELL_PERCENT = 100 / BOARD_SIZE;
 
 interface CapturedPieceAnim {
@@ -61,46 +58,59 @@ function PieceDisk({ piece }: { piece: Piece }) {
   );
 }
 
-// Инициализация доски
-const initializeBoard = (): Board => {
-  const board: Board = Array(BOARD_SIZE)
-    .fill(null)
-    .map(() => Array(BOARD_SIZE).fill(null));
-
-  // Черные шашки (верхние 3 ряда)
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < BOARD_SIZE; col++) {
-      if ((row + col) % 2 === 1) {
-        board[row][col] = { color: 'black', type: 'regular' };
-      }
-    }
-  }
-
-  // Белые шашки (нижние 3 ряда)
-  for (let row = 5; row < BOARD_SIZE; row++) {
-    for (let col = 0; col < BOARD_SIZE; col++) {
-      if ((row + col) % 2 === 1) {
-        board[row][col] = { color: 'white', type: 'regular' };
-      }
-    }
-  }
-
-  return board;
-};
-
-interface CheckersBoardProps {
-  gameMode: 'pvp' | 'ai';
-  aiLevel: 'easy' | 'medium' | 'hard';
+export interface OnlinePlayConfig {
+  myColor: PieceColor;
+  syncVersion: number;
+  synced: {
+    board: Board;
+    currentPlayer: PieceColor;
+    moveHistory: Move[];
+    winner: PieceColor | null;
+  };
+  onMove: (move: Move) => Promise<boolean>;
+  disabled?: boolean;
 }
 
-export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps) {
-  const [board, setBoard] = useState<Board>(initializeBoard());
+interface CheckersBoardProps {
+  gameMode: GameMode;
+  aiLevel: AiLevel;
+  humanColor?: PieceColor;
+  restoredState?: SavedGameState | null;
+  onPersist?: (state: SavedGameState) => void;
+  onGameEnd?: () => void;
+  onlinePlay?: OnlinePlayConfig;
+}
+
+export default function CheckersBoard({
+  gameMode,
+  aiLevel,
+  humanColor = 'white',
+  restoredState,
+  onPersist,
+  onGameEnd,
+  onlinePlay,
+}: CheckersBoardProps) {
+  const myColor = onlinePlay?.myColor ?? humanColor;
+  const aiColor: PieceColor = humanColor === 'white' ? 'black' : 'white';
+  const { soundEnabled } = useApp();
+  const { user, refreshProfile } = useAuth();
+  const gameSavedRef = useRef(!!restoredState?.winner);
+
+  const [board, setBoard] = useState<Board>(
+    () => restoredState?.board ?? initializeBoard()
+  );
   const [selectedPiece, setSelectedPiece] = useState<Position | null>(null);
-  const [currentPlayer, setCurrentPlayer] = useState<PieceColor>('white');
+  const [currentPlayer, setCurrentPlayer] = useState<PieceColor>(
+    () => restoredState?.currentPlayer ?? 'white'
+  );
   const [validMoves, setValidMoves] = useState<Move[]>([]);
-  const [winner, setWinner] = useState<PieceColor | null>(null);
+  const [winner, setWinner] = useState<PieceColor | null>(
+    () => restoredState?.winner ?? null
+  );
   const [mustCapture, setMustCapture] = useState(false);
-  const [moveHistory, setMoveHistory] = useState<Move[]>([]);
+  const [moveHistory, setMoveHistory] = useState<Move[]>(
+    () => restoredState?.moveHistory ?? []
+  );
   const [moveAnimation, setMoveAnimation] = useState<MoveAnimation | null>(null);
   const [capturingPieces, setCapturingPieces] = useState<CapturedPieceAnim[]>([]);
   const [captureFading, setCaptureFading] = useState(false);
@@ -108,6 +118,71 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
   const isAnimatingRef = useRef(false);
   const moveFinishedRef = useRef(false);
   const animatingMoveRef = useRef<Move | null>(null);
+
+  useEffect(() => {
+    if (!onlinePlay || isAnimatingRef.current) return;
+    setBoard(onlinePlay.synced.board);
+    setCurrentPlayer(onlinePlay.synced.currentPlayer);
+    setMoveHistory(onlinePlay.synced.moveHistory);
+    setWinner(onlinePlay.synced.winner);
+    setSelectedPiece(null);
+    setValidMoves([]);
+    setMustCapture(false);
+  }, [onlinePlay?.syncVersion]);
+
+  useEffect(() => {
+    if (!onPersist || gameMode === 'online') return;
+    onPersist({
+      board,
+      currentPlayer,
+      moveHistory,
+      winner,
+      gameMode,
+      aiLevel,
+      humanColor: gameMode === 'ai' ? humanColor : undefined,
+      savedAt: new Date().toISOString(),
+    });
+  }, [
+    board,
+    currentPlayer,
+    moveHistory,
+    winner,
+    gameMode,
+    aiLevel,
+    humanColor,
+    onPersist,
+  ]);
+
+  useEffect(() => {
+    if (!winner || gameSavedRef.current || gameMode === 'online') return;
+    gameSavedRef.current = true;
+    if (soundEnabled) playWinSound();
+
+    void (async () => {
+      const recorded = await saveFinishedGame({
+        userId: user?.id,
+        gameMode,
+        aiLevel,
+        winner,
+        moves: moveHistory,
+        humanColor: gameMode === 'ai' ? humanColor : undefined,
+      });
+      if (recorded) {
+        await refreshProfile();
+        onGameEnd?.();
+      }
+    })();
+  }, [
+    winner,
+    user?.id,
+    gameMode,
+    aiLevel,
+    humanColor,
+    moveHistory,
+    soundEnabled,
+    refreshProfile,
+    onGameEnd,
+  ]);
 
   const cellStyle = (row: number, col: number) => ({
     left: `${col * CELL_PERCENT}%`,
@@ -283,6 +358,11 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
   // Применение хода к состоянию (после анимации)
   const commitMove = useCallback(
     (move: Move) => {
+      if (onlinePlay) {
+        void onlinePlay.onMove(move);
+        return;
+      }
+
       setBoard(prev => {
         const newBoard = applyMoveToBoard(prev, move);
         const opponent = currentPlayer === 'white' ? 'black' : 'white';
@@ -298,7 +378,7 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
         return newBoard;
       });
     },
-    [currentPlayer]
+    [currentPlayer, onlinePlay]
   );
 
   const finishMoveAnimation = useCallback(() => {
@@ -320,6 +400,11 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
 
       const piece = board[move.from.row][move.from.col];
       if (!piece) return;
+
+      if (soundEnabled) {
+        if (move.captures?.length) playCaptureSound();
+        else playMoveSound();
+      }
 
       isAnimatingRef.current = true;
       moveFinishedRef.current = false;
@@ -354,13 +439,15 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
         }
       }, 450);
     },
-    [board, finishMoveAnimation]
+    [board, finishMoveAnimation, soundEnabled]
   );
 
   // Обработка клика по клетке
   const handleCellClick = (row: number, col: number) => {
     if (winner || isAnimatingRef.current) return;
-    if (gameMode === 'ai' && currentPlayer === 'black') return;
+    if (onlinePlay?.disabled) return;
+    if (gameMode === 'online' && currentPlayer !== myColor) return;
+    if (gameMode === 'ai' && currentPlayer !== humanColor) return;
 
     const piece = board[row][col];
 
@@ -381,6 +468,7 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
           isPlayableSquare(m.to.row, m.to.col)
       );
 
+      if (soundEnabled) playSelectSound();
       setSelectedPiece({ row, col });
       setValidMoves(filteredMoves);
       setMustCapture(hasCaptures);
@@ -407,14 +495,14 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
   useEffect(() => {
     if (
       gameMode === 'ai' &&
-      currentPlayer === 'black' &&
+      currentPlayer === aiColor &&
       !winner &&
       !isAnimating
     ) {
-      const aiMoves = getAllPlayerMoves('black', board);
+      const aiMoves = getAllPlayerMoves(aiColor, board);
 
       if (aiMoves.length === 0) {
-        setWinner('white');
+        setWinner(humanColor);
         return;
       }
 
@@ -430,8 +518,8 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
           const movesToConsider = captureMoves.length > 0 ? captureMoves : aiMoves;
 
           selectedMove = movesToConsider.reduce((best, move) => {
-            const score = evaluateMove(move, board);
-            const bestScore = evaluateMove(best, board);
+            const score = evaluateMove(move, board, aiColor);
+            const bestScore = evaluateMove(best, board, aiColor);
             return score > bestScore ? move : best;
           });
         }
@@ -441,10 +529,20 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
 
       return () => clearTimeout(timer);
     }
-  }, [currentPlayer, gameMode, winner, isAnimating, board, aiLevel, playMove]);
+  }, [
+    currentPlayer,
+    gameMode,
+    winner,
+    isAnimating,
+    board,
+    aiLevel,
+    aiColor,
+    humanColor,
+    playMove,
+  ]);
 
   // Простая оценка хода для ИИ
-  const evaluateMove = (move: Move, board: Board): number => {
+  const evaluateMove = (move: Move, board: Board, forColor: PieceColor): number => {
     let score = 0;
 
     // Взятия
@@ -455,7 +553,10 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
     // Продвижение к дамке
     const piece = board[move.from.row][move.from.col];
     if (piece && piece.type === 'regular') {
-      score += (BOARD_SIZE - move.to.row) * 2;
+      score +=
+        forColor === 'white'
+          ? (BOARD_SIZE - 1 - move.to.row) * 2
+          : move.to.row * 2;
     }
 
     // Центральные позиции
@@ -467,6 +568,7 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
 
   // Сброс игры
   const resetGame = () => {
+    gameSavedRef.current = false;
     setBoard(initializeBoard());
     setCurrentPlayer('white');
     setSelectedPiece(null);
@@ -590,15 +692,15 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
       {/* Боковая панель */}
       <aside className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overscroll-contain lg:flex-none lg:w-72 lg:min-w-[18rem] lg:justify-start lg:gap-3 xl:w-80">
         {/* Статус игры */}
-        <div className="rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur-sm sm:p-4 lg:p-5">
-          <h3 className="mb-2 text-base font-bold text-white lg:mb-4 lg:text-xl">
+        <div className="rounded-xl border border-app-panel-border bg-app-panel p-3 backdrop-blur-sm sm:p-4 lg:p-5">
+          <h3 className="mb-2 text-base font-bold text-app-text lg:mb-4 lg:text-xl">
             Статус игры
           </h3>
 
           {winner ? (
             <div className="space-y-3 text-center lg:space-y-4">
               <Trophy className="mx-auto h-12 w-12 text-yellow-400 lg:h-16 lg:w-16" />
-              <p className="text-xl font-bold text-white lg:text-2xl">
+              <p className="text-xl font-bold text-app-text lg:text-2xl">
                 Победили {winner === 'white' ? 'Белые' : 'Черные'}!
               </p>
               <button
@@ -612,21 +714,33 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
           ) : (
             <>
               <div className="mb-3 flex items-center justify-between lg:mb-4">
-                <span className="text-purple-200 text-sm lg:text-base">Ход:</span>
+                <span className="text-sm text-app-muted lg:text-base">Ход:</span>
                 <span
                   className={`text-base font-bold lg:text-lg ${
-                    currentPlayer === 'white' ? 'text-gray-200' : 'text-gray-400'
+                    currentPlayer === 'white' ? 'text-app-text' : 'text-app-muted'
                   }`}
                 >
                   {currentPlayer === 'white' ? 'Белые' : 'Черные'}
                 </span>
               </div>
 
+              {(gameMode === 'ai' || gameMode === 'online') && (
+                <div className="mb-3 flex items-center justify-between text-sm lg:text-base">
+                  <span className="text-app-muted">Вы играете:</span>
+                  <span className="font-bold text-app-text">
+                    {myColor === 'white' ? 'Белые' : 'Чёрные'}
+                  </span>
+                </div>
+              )}
               {gameMode === 'ai' && (
                 <div className="flex items-center justify-between text-sm lg:text-base">
-                  <span className="text-purple-200">Сложность ИИ:</span>
+                  <span className="text-app-muted">Сложность ИИ:</span>
                   <span className="font-bold text-green-400">
-                    {aiLevel === 'easy' ? 'Легко' : aiLevel === 'medium' ? 'Средне' : 'Сложно'}
+                    {aiLevel === 'easy'
+                      ? 'Легко'
+                      : aiLevel === 'medium'
+                        ? 'Средне'
+                        : 'Сложно'}
                   </span>
                 </div>
               )}
@@ -644,13 +758,13 @@ export default function CheckersBoard({ gameMode, aiLevel }: CheckersBoardProps)
         )}
 
         {/* История ходов */}
-        <div className="rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur-sm sm:p-4 lg:p-5">
-          <h3 className="mb-2 text-base font-bold text-white lg:mb-4 lg:text-xl">
+        <div className="rounded-xl border border-app-panel-border bg-app-panel p-3 backdrop-blur-sm sm:p-4 lg:p-5">
+          <h3 className="mb-2 text-base font-bold text-app-text lg:mb-4 lg:text-xl">
             История ({moveHistory.length} ходов)
           </h3>
           <div className="max-h-24 space-y-2 overflow-y-auto sm:max-h-28 lg:max-h-36">
             {moveHistory.slice(-5).reverse().map((move, index) => (
-              <div key={index} className="rounded bg-white/5 p-2 text-xs text-purple-200 lg:text-sm">
+              <div key={index} className="rounded bg-app-panel-hover p-2 text-xs text-app-muted lg:text-sm">
                 Ход #{moveHistory.length - index}: ({move.from.row},{move.from.col}) → ({move.to.row},{move.to.col})
                 {move.captures && ` (взято: ${move.captures.length})`}
               </div>

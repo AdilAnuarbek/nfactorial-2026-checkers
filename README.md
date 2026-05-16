@@ -1,6 +1,6 @@
 # 🎯 Шашки Pro - Современная веб-платформа для игры в шашки
 
-![Next.js](https://img.shields.io/badge/Next.js-14-black)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-cyan)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -64,7 +64,9 @@
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
 - **Icons:** Lucide React
-- **State Management:** React Hooks (useState, useEffect)
+- **State Management:** React Context + Hooks
+- **Backend (optional):** Supabase (Auth, PostgreSQL)
+- **Persistence:** LocalStorage + облако при входе
 
 ## 📦 Установка и запуск
 
@@ -78,17 +80,24 @@
 ```bash
 # 1. Клонируйте репозиторий
 git clone <your-repo-url>
-cd checkers-pro
+cd nfactorial-2026-checkers
 
 # 2. Установите зависимости
 npm install
 
-# 3. Запустите dev-сервер
+# 3. (Опционально) Supabase — скопируйте .env.example в .env.local
+cp .env.example .env.local
+# Заполните NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Выполните SQL из supabase/schema.sql в Supabase SQL Editor
+
+# 4. Запустите dev-сервер
 npm run dev
 
-# 4. Откройте браузер
+# 5. Откройте браузер
 # http://localhost:3000
 ```
+
+Без Supabase приложение полностью работает: игра, localStorage, история партий на устройстве.
 
 ### Команды
 
@@ -102,16 +111,20 @@ npm run lint         # Проверка кода
 ## 📁 Структура проекта
 
 ```
-checkers-pro/
+nfactorial-2026-checkers/
 ├── app/
-│   ├── page.tsx           # Главная страница с выбором режима
-│   ├── layout.tsx         # Root layout
-│   └── globals.css        # Глобальные стили
+│   ├── page.tsx              # Меню, авторизация, история
+│   ├── layout.tsx
+│   └── globals.css           # Темы (CSS variables)
 ├── components/
-│   ├── CheckersBoard.tsx  # Игровая доска и логика
-│   └── GameControls.tsx   # Панель управления
-├── public/                # Статические файлы
-├── package.json
+│   ├── CheckersBoard.tsx     # Доска и правила
+│   ├── GameControls.tsx      # Тема, звук, ИИ
+│   ├── AuthPanel.tsx
+│   ├── GameHistoryPanel.tsx
+│   └── Providers.tsx
+├── context/                  # Тема, звук, Supabase Auth
+├── lib/                      # Игра, storage, sounds, Supabase
+├── supabase/schema.sql       # Схема БД
 └── README.md
 ```
 
@@ -136,17 +149,26 @@ checkers-pro/
 4. Выбор хода с максимальной оценкой
 ```
 
+## ✅ Уровень «Сильный+» (добавлено)
+
+- [x] **LocalStorage** — автосохранение партии, настройки, локальная история
+- [x] **Supabase** — схема БД, клиент, сохранение партий и статистики (при настройке `.env`)
+- [x] **Авторизация** — email/пароль через Supabase Auth
+- [x] **История партий** — локально и в облаке для вошедших пользователей
+- [x] **Тёмная / светлая тема** — переключатель в игре
+- [x] **Звуковые эффекты** — ход, взятие, победа (можно отключить)
+
 ## 🚧 Планы развития (Переход к уровню "Великий")
 
-### В процессе разработки
-- [ ] Интеграция Supabase для БД
-- [ ] Система авторизации
-- [ ] История партий с сохранением
-- [ ] Темная/светлая тема (переключение)
-- [ ] Звуковые эффекты
+### Мультиплеер (онлайн по ссылке)
+- [x] **Игра по ссылке** — комнаты через Supabase Realtime (WebSocket)
+- [x] Синхронизация ходов в реальном времени
+- [x] Переподключение по той же ссылке (токен в localStorage)
+- [x] Индикатор онлайн/офлайн соперника
+
+После `supabase/schema.sql` включите **Database → Replication → `game_rooms`** для Realtime.
 
 ### Будущие фичи
-- [ ] **Мультиплеер** - игра онлайн через WebSockets
 - [ ] **AI Coach** - анализ партий и советы
 - [ ] **Глобальный рейтинг** - лидерборд по городам
 - [ ] **Турнирный режим** - автоматические турниры
