@@ -1,11 +1,12 @@
 'use client';
 
-import { Bot, X } from 'lucide-react';
+import { Bot, X, Zap } from 'lucide-react';
 import type { AiLevel, PieceColor } from '@/lib/checkers/types';
 
 interface AiMatchSetupProps {
   aiLevel: AiLevel;
   humanColor: PieceColor;
+  blitz?: boolean;
   onAiLevelChange: (level: AiLevel) => void;
   onHumanColorChange: (color: PieceColor) => void;
   onStart: () => void;
@@ -53,6 +54,7 @@ function ColorOption({
 export default function AiMatchSetup({
   aiLevel,
   humanColor,
+  blitz = false,
   onAiLevelChange,
   onHumanColorChange,
   onStart,
@@ -76,9 +78,18 @@ export default function AiMatchSetup({
                 id="ai-setup-title"
                 className="text-xl font-bold text-app-text"
               >
-                Игра против ИИ
+                {blitz ? 'Блиц против ИИ' : 'Игра против ИИ'}
               </h2>
-              <p className="text-sm text-app-muted">Настройте партию</p>
+              <p className="text-sm text-app-muted">
+                {blitz ? (
+                  <span className="inline-flex items-center gap-1 text-orange-300">
+                    <Zap className="h-3.5 w-3.5" />
+                    3 минуты на каждого
+                  </span>
+                ) : (
+                  'Настройте партию'
+                )}
+              </p>
             </div>
           </div>
           <button

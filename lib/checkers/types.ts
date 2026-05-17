@@ -1,3 +1,7 @@
+import type { PersistedClock, TimeControl } from './clock';
+
+export type { TimeControl, PersistedClock } from './clock';
+
 export type PieceType = 'regular' | 'king';
 export type PieceColor = 'black' | 'white';
 
@@ -30,6 +34,8 @@ export interface SavedGameState {
   gameMode: GameMode;
   aiLevel: AiLevel;
   humanColor?: PieceColor;
+  timeControl?: TimeControl;
+  clock?: PersistedClock;
   savedAt: string;
 }
 

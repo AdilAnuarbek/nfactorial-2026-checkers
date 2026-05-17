@@ -15,6 +15,7 @@ import {
   UserMinus,
 } from 'lucide-react';
 import AppearanceControls from '@/components/AppearanceControls';
+import AdBanner from '@/components/AdBanner';
 import { useAuth } from '@/context/AuthProvider';
 import { CITIES } from '@/lib/constants';
 import {
@@ -164,6 +165,7 @@ export default function ProfilePage() {
           На главную
         </Link>
 
+        {/* Карточка профиля */}
         <div className="mb-8 rounded-2xl border border-app-panel-border bg-app-panel p-6">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-app-accent/20">
@@ -202,6 +204,12 @@ export default function ProfilePage() {
           )}
         </div>
 
+        {/* Баннер 1: после карточки профиля, перед редактированием */}
+        <div className="mb-6">
+          <AdBanner variant="upgrade" closeable={false} />
+        </div>
+
+        {/* Редактирование профиля */}
         <section className="mb-6 rounded-2xl border border-app-panel-border bg-app-panel p-6">
           <h2 className="mb-4 text-lg font-bold text-app-text">
             Редактировать профиль
@@ -247,6 +255,7 @@ export default function ProfilePage() {
           </form>
         </section>
 
+        {/* Смена пароля (только для email-пользователей) */}
         {!oauthUser ? (
           <section className="mb-6 rounded-2xl border border-app-panel-border bg-app-panel p-6">
             <h2 className="mb-4 text-lg font-bold text-app-text">
@@ -290,6 +299,12 @@ export default function ProfilePage() {
           </p>
         )}
 
+        {/* Баннер 2: между паролем и секцией друзей */}
+        <div className="mb-6">
+          <AdBanner variant="horizontal" />
+        </div>
+
+        {/* Пригласить в друзья */}
         <section className="mb-6 rounded-2xl border border-app-panel-border bg-app-panel p-6">
           <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-app-text">
             <Link2 className="h-5 w-5 text-app-accent" />
@@ -324,6 +339,7 @@ export default function ProfilePage() {
           )}
         </section>
 
+        {/* Список друзей */}
         <section className="rounded-2xl border border-app-panel-border bg-app-panel p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-app-text">
             <Users className="h-5 w-5 text-app-accent" />

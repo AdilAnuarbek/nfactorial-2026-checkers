@@ -2,13 +2,15 @@
 
 import { ArrowLeft, Settings } from 'lucide-react';
 import AppearanceControls from '@/components/AppearanceControls';
-import type { AiLevel, PieceColor } from '@/lib/checkers/types';
+import type { AiLevel, PieceColor, TimeControl } from '@/lib/checkers/types';
+import { Zap } from 'lucide-react';
 
 interface GameControlsProps {
   onBack: () => void;
   gameMode: 'pvp' | 'ai' | 'online';
   aiLevel: AiLevel;
   humanColor?: PieceColor;
+  timeControl?: TimeControl;
   onAiLevelChange: (level: AiLevel) => void;
 }
 
@@ -17,6 +19,7 @@ export default function GameControls({
   gameMode,
   aiLevel,
   humanColor = 'white',
+  timeControl = 'standard',
   onAiLevelChange,
 }: GameControlsProps) {
   return (
@@ -41,6 +44,12 @@ export default function GameControls({
                   ? 'Онлайн'
                   : 'Против ИИ'}
             </span>
+            {timeControl === 'blitz' && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-300">
+                <Zap className="h-3 w-3" />
+                Блиц
+              </span>
+            )}
           </div>
 
           {gameMode === 'ai' && (

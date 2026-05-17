@@ -8,8 +8,15 @@ import AuthPanel from '@/components/AuthPanel';
 import GameHistoryPanel from '@/components/GameHistoryPanel';
 import AppearanceControls from '@/components/AppearanceControls';
 import AiMatchSetup from '@/components/AiMatchSetup';
+import AdBanner from '@/components/AdBanner';
 import { useApp } from '@/context/AppProviders';
-import type { AiLevel, GameMode, PieceColor, SavedGameState } from '@/lib/checkers/types';
+import type {
+  AiLevel,
+  GameMode,
+  PieceColor,
+  SavedGameState,
+  TimeControl,
+} from '@/lib/checkers/types';
 import {
   clearSavedGame,
   loadSavedGame,
@@ -21,7 +28,7 @@ import {
   saveDefaultPlayerName,
   saveRoomSession,
 } from '@/lib/multiplayer/session';
-import { Crown, Sparkles, Link2 } from 'lucide-react';
+import { Link2, Zap } from 'lucide-react';
 import CityLeaderboard from '@/components/CityLeaderboard';
 
 export default function Home() {
@@ -32,6 +39,8 @@ export default function Home() {
   const [aiLevel, setAiLevel] = useState<AiLevel>(defaultAiLevel);
   const [humanColor, setHumanColor] = useState<PieceColor>(defaultHumanColor);
   const [showAiSetup, setShowAiSetup] = useState(false);
+  const [aiSetupBlitz, setAiSetupBlitz] = useState(false);
+  const [timeControl, setTimeControl] = useState<TimeControl>('standard');
   const [resumeOffer, setResumeOffer] = useState<SavedGameState | null>(null);
   const [restoredGame, setRestoredGame] = useState<SavedGameState | null>(null);
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -67,16 +76,19 @@ export default function Home() {
   const startMode = (
     mode: GameMode,
     fromSaved?: SavedGameState | null,
-    color?: PieceColor
+    color?: PieceColor,
+    control: TimeControl = 'standard'
   ) => {
     setGameMode(mode);
     if (fromSaved) {
       setRestoredGame(fromSaved);
       setAiLevel(fromSaved.aiLevel);
       if (fromSaved.humanColor) setHumanColor(fromSaved.humanColor);
+      setTimeControl(fromSaved.timeControl ?? 'standard');
     } else {
       setRestoredGame(null);
       clearSavedGame();
+      setTimeControl(control);
       if (mode === 'ai' && color) {
         setHumanColor(color);
         setDefaultHumanColor(color);
@@ -84,6 +96,7 @@ export default function Home() {
     }
     setResumeOffer(null);
     setShowAiSetup(false);
+    setAiSetupBlitz(false);
   };
 
   const handleCreateOnlineRoom = async () => {
@@ -132,6 +145,7 @@ export default function Home() {
               <p className="mb-3 text-sm text-app-text">
                 Есть незавершённая партия (
                 {resumeOffer.gameMode === 'pvp' ? 'вдвоём' : 'против ИИ'}
+                {resumeOffer.timeControl === 'blitz' && ' · блиц 3 мин'}
                 {resumeOffer.gameMode === 'ai' &&
                   resumeOffer.humanColor &&
                   ` · ${resumeOffer.humanColor === 'white' ? 'белые' : 'чёрные'}`}
@@ -171,9 +185,49 @@ export default function Home() {
               <p className="text-blue-100">Играйте с другом на одном устройстве</p>
             </button>
 
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => startMode('pvp', null, undefined, 'blitz')}
+                className="group relative overflow-hidden rounded-2xl border border-orange-400/40 bg-gradient-to-r from-orange-600 to-amber-600 p-5 text-left transition-all hover:scale-[1.02] hover:shadow-2xl sm:p-6"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <Zap className="h-6 w-6 text-yellow-200" />
+                  <h2 className="text-xl font-bold text-white sm:text-2xl">
+                    Блиц вдвоём
+                  </h2>
+                </div>
+                <p className="text-sm text-orange-100 sm:text-base">
+                  3 минуты на каждого игрока
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAiSetupBlitz(true);
+                  setShowAiSetup(true);
+                }}
+                className="group relative overflow-hidden rounded-2xl border border-orange-400/40 bg-gradient-to-r from-amber-600 to-yellow-600 p-5 text-left transition-all hover:scale-[1.02] hover:shadow-2xl sm:p-6"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <Zap className="h-6 w-6 text-yellow-100" />
+                  <h2 className="text-xl font-bold text-white sm:text-2xl">
+                    Блиц против ИИ
+                  </h2>
+                </div>
+                <p className="text-sm text-amber-100 sm:text-base">
+                  Быстрая партия · 3 мин на сторону
+                </p>
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => setShowAiSetup(true)}
+              onClick={() => {
+                setAiSetupBlitz(false);
+                setShowAiSetup(true);
+              }}
               className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-left transition-all hover:scale-[1.02] hover:shadow-2xl sm:p-8"
             >
               <h2 className="mb-2 text-2xl font-bold text-white sm:text-3xl">
@@ -204,13 +258,23 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Баннер 1: между кнопками и авторизацией */}
+          <div className="mb-6">
+            <AdBanner variant="horizontal" />
+          </div>
+
           <div className="mb-8">
             <AuthPanel />
           </div>
 
           <GameHistoryPanel refreshKey={historyVersion} />
 
-          <div className="mt-6">
+          {/* Баннер 2: между историей и лидербордом */}
+          <div className="mt-4">
+            <AdBanner variant="upgrade" />
+          </div>
+
+          <div className="mt-4">
             <CityLeaderboard />
           </div>
 
@@ -234,10 +298,16 @@ export default function Home() {
           <AiMatchSetup
             aiLevel={aiLevel}
             humanColor={humanColor}
+            blitz={aiSetupBlitz}
             onAiLevelChange={handleAiLevelChange}
             onHumanColorChange={setHumanColor}
-            onStart={() => startMode('ai', null, humanColor)}
-            onCancel={() => setShowAiSetup(false)}
+            onStart={() =>
+              startMode('ai', null, humanColor, aiSetupBlitz ? 'blitz' : 'standard')
+            }
+            onCancel={() => {
+              setShowAiSetup(false);
+              setAiSetupBlitz(false);
+            }}
           />
         )}
       </main>
@@ -255,13 +325,15 @@ export default function Home() {
           gameMode={gameMode}
           aiLevel={aiLevel}
           humanColor={humanColor}
+          timeControl={timeControl}
           onAiLevelChange={handleAiLevelChange}
         />
         <CheckersBoard
-          key={`${restoredGame?.savedAt ?? 'new'}-${humanColor}`}
+          key={`${restoredGame?.savedAt ?? 'new'}-${humanColor}-${timeControl}`}
           gameMode={gameMode}
           aiLevel={aiLevel}
           humanColor={humanColor}
+          timeControl={timeControl}
           restoredState={restoredGame}
           onPersist={state => {
             if (!state.winner) saveGameState(state);

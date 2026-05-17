@@ -14,7 +14,10 @@ import type {
   PieceColor,
   Position,
   SavedGameState,
+  TimeControl,
 } from '@/lib/checkers/types';
+import { useGameClock } from '@/hooks/useGameClock';
+import GameClockDisplay from '@/components/GameClockDisplay';
 import { saveFinishedGame } from '@/lib/games';
 import {
   playCaptureSound,
@@ -75,6 +78,7 @@ interface CheckersBoardProps {
   gameMode: GameMode;
   aiLevel: AiLevel;
   humanColor?: PieceColor;
+  timeControl?: TimeControl;
   restoredState?: SavedGameState | null;
   onPersist?: (state: SavedGameState) => void;
   onGameEnd?: () => void;
@@ -85,6 +89,7 @@ export default function CheckersBoard({
   gameMode,
   aiLevel,
   humanColor = 'white',
+  timeControl = 'standard',
   restoredState,
   onPersist,
   onGameEnd,
@@ -115,6 +120,7 @@ export default function CheckersBoard({
   const [capturingPieces, setCapturingPieces] = useState<CapturedPieceAnim[]>([]);
   const [captureFading, setCaptureFading] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [winByTimeout, setWinByTimeout] = useState(false);
   const isAnimatingRef = useRef(false);
   const moveFinishedRef = useRef(false);
   const animatingMoveRef = useRef<{ move: Move; isIncoming: boolean } | null>(null);
@@ -123,6 +129,30 @@ export default function CheckersBoard({
   useEffect(() => {
     localMovesLengthRef.current = moveHistory.length;
   }, [moveHistory.length]);
+
+  const handleClockTimeout = useCallback((timeoutWinner: PieceColor) => {
+    setWinByTimeout(true);
+    setWinner(timeoutWinner);
+  }, []);
+
+  const {
+    blitz,
+    tick: clockTick,
+    whiteDisplayMs,
+    blackDisplayMs,
+    matchElapsedMs,
+    onTurnEnd,
+    getPersisted,
+    resetClock,
+    isLowTime,
+  } = useGameClock({
+    timeControl: gameMode === 'online' ? 'standard' : timeControl,
+    currentPlayer,
+    winner,
+    paused: isAnimating,
+    restored: restoredState?.clock ?? null,
+    onTimeout: handleClockTimeout,
+  });
 
   useEffect(() => {
     if (!onlinePlay || isAnimatingRef.current) return;
@@ -159,6 +189,8 @@ export default function CheckersBoard({
       gameMode,
       aiLevel,
       humanColor: gameMode === 'ai' ? humanColor : undefined,
+      timeControl: blitz ? 'blitz' : 'standard',
+      clock: blitz ? getPersisted() : undefined,
       savedAt: new Date().toISOString(),
     });
   }, [
@@ -169,6 +201,9 @@ export default function CheckersBoard({
     gameMode,
     aiLevel,
     humanColor,
+    blitz,
+    clockTick,
+    getPersisted,
     onPersist,
   ]);
 
@@ -376,6 +411,10 @@ export default function CheckersBoard({
 
   const commitMove = useCallback(
     (move: Move, isIncoming: boolean = false) => {
+      if (blitz && !winner) {
+        onTurnEnd(currentPlayer);
+      }
+
       // Безопасно вычисляем новые данные
       const newBoard = applyMoveToBoard(board, move);
       const opponent = currentPlayer === 'white' ? 'black' : 'white';
@@ -396,7 +435,7 @@ export default function CheckersBoard({
         void onlinePlay.onMove(move);
       }
     },
-    [board, currentPlayer, onlinePlay]
+    [board, currentPlayer, onlinePlay, blitz, winner, onTurnEnd]
   );
 
   const finishMoveAnimation = useCallback(() => {
@@ -591,6 +630,8 @@ export default function CheckersBoard({
   // Сброс игры
   const resetGame = () => {
     gameSavedRef.current = false;
+    setWinByTimeout(false);
+    resetClock();
     setBoard(initializeBoard());
     setCurrentPlayer('white');
     setSelectedPiece(null);
@@ -713,6 +754,17 @@ export default function CheckersBoard({
 
       {/* Боковая панель */}
       <aside className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overscroll-contain lg:flex-none lg:w-72 lg:min-w-[18rem] lg:justify-start lg:gap-3 xl:w-80">
+        {gameMode !== 'online' && (
+          <GameClockDisplay
+            blitz={blitz}
+            whiteMs={whiteDisplayMs}
+            blackMs={blackDisplayMs}
+            matchElapsedMs={matchElapsedMs}
+            currentPlayer={currentPlayer}
+            isLowTime={isLowTime}
+          />
+        )}
+
         {/* Статус игры */}
         <div className="rounded-xl border border-app-panel-border bg-app-panel p-3 backdrop-blur-sm sm:p-4 lg:p-5">
           <h3 className="mb-2 text-base font-bold text-app-text lg:mb-4 lg:text-xl">
@@ -725,6 +777,11 @@ export default function CheckersBoard({
               <p className="text-xl font-bold text-app-text lg:text-2xl">
                 Победили {winner === 'white' ? 'Белые' : 'Черные'}!
               </p>
+              {winByTimeout && (
+                <p className="text-sm text-app-muted">
+                  Победа по времени — у соперника закончились 3 минуты
+                </p>
+              )}
               <button
                 onClick={resetGame}
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-2.5 font-bold text-white transition-all hover:from-green-600 hover:to-emerald-600 lg:py-3"
