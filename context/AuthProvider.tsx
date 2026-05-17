@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import type { User } from '@supabase/supabase-js';
+import { ensureFriendCode } from '@/lib/friends';
 import {
   getSupabase,
   isSupabaseConfigured,
@@ -26,6 +27,10 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateCity: (city: string) => Promise<void>;
+  updateProfile: (fields: {
+    display_name?: string;
+    city?: string | null;
+  }) => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,7 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-    setProfile(data as ProfileRow | null);
+    const row = data as ProfileRow | null;
+    if (row && !row.friend_code) {
+      const code = await ensureFriendCode(userId);
+      if (code) row.friend_code = code;
+    }
+    setProfile(row);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -121,13 +131,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateCity = useCallback(async (city: string) => {
     const supabase = getSupabase();
     if (!supabase || !user) return;
-    await supabase
-      .from('profiles')
-      .update({ city })
-      .eq('id', user.id);
-    // Обновляем локальный стейт без лишнего запроса к БД
+    await supabase.from('profiles').update({ city }).eq('id', user.id);
     setProfile(prev => (prev ? { ...prev, city } : prev));
   }, [user]);
+
+  const updateProfile = useCallback(
+    async (fields: { display_name?: string; city?: string | null }) => {
+      const supabase = getSupabase();
+      if (!supabase || !user) return 'Не авторизован';
+      const { error } = await supabase
+        .from('profiles')
+        .update(fields)
+        .eq('id', user.id);
+      if (error) return error.message;
+      setProfile(prev => (prev ? { ...prev, ...fields } : prev));
+      return null;
+    },
+    [user]
+  );
 
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
@@ -149,8 +170,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       refreshProfile,
       updateCity,
+      updateProfile,
     }),
-    [user, profile, loading, needsCityPicker, signIn, signUp, signInWithGoogle, signOut, refreshProfile, updateCity]
+    [
+      user,
+      profile,
+      loading,
+      needsCityPicker,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      refreshProfile,
+      updateCity,
+      updateProfile,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

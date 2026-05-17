@@ -92,3 +92,5 @@ create policy "game_rooms_update" on public.game_rooms for update using (true);
 
 -- Включаем Realtime для таблицы game_rooms
 ALTER PUBLICATION supabase_realtime ADD TABLE game_rooms;
+
+-- Друзья и invite-коды: см. supabase/friends.sql

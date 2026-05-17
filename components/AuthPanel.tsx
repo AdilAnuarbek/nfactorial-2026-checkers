@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { LogIn, LogOut, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthProvider';
 import { CITIES } from '@/lib/constants';
@@ -60,6 +61,13 @@ export default function AuthPanel({ compact = false }: { compact?: boolean }) {
             )}
           </span>
         </div>
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 rounded-xl border border-app-panel-border bg-app-panel px-3 py-2 text-sm text-app-text transition hover:bg-app-panel-hover"
+        >
+          <User className="h-4 w-4 text-app-accent" />
+          Профиль
+        </Link>
         <button
           type="button"
           onClick={() => signOut()}

@@ -32,5 +32,6 @@ export type ProfileRow = {
   city: string | null;
   wins: number;
   losses: number;
+  friend_code: string | null;
   created_at: string;
 };
